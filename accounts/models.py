@@ -29,19 +29,19 @@ class Address(models.Model):
     zip_code = models.CharField(max_length=20)
 
 
-class Client(models.Model):
-    DOCUMENT_TYPE_CHOICES = [
-        ('CPF', 'CPF'),
-        ('CNPJ', 'CNPJ'),
-    ]
+class DocumentType(models.TextChoices):
+    CPF = 'CPF', 'Cpf'
+    CNPJ = 'CNPJ', 'Cnpj'
 
+
+class Client(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     address = models.OneToOneField(Address, on_delete=models.CASCADE)
 
     phone_number = models.CharField(max_length=20)
     birth_date = models.DateField()
     document_number = models.CharField(max_length=50)
-    document_type = models.CharField(max_length=15, choices=DOCUMENT_TYPE_CHOICES)
+    document_type = models.CharField(max_length=15, choices=DocumentType)
 
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
     updated_at = models.DateTimeField(auto_now=True)
