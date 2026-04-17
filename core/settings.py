@@ -61,6 +61,7 @@ INSTALLED_APPS = [
 
     #apps
     'accounts',
+    'transactions'
     
 ]
 
@@ -164,3 +165,4 @@ STATIC_URL = 'static/'
 
 # settings.py
 AUTH_USER_MODEL = 'accounts.User'
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'

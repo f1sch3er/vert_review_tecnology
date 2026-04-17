@@ -1,5 +1,6 @@
-from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin
 from django.db import models
+from django.conf import settings
+from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin
 
 
 
@@ -48,8 +49,25 @@ class Client(models.Model):
     deleted_at = models.DateTimeField(blank=True, null=True)
 
 
-
-
-
     def __str__(self):
         return self.user.email
+    
+class Account(models.Model):
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE
+    )
+
+    account_number = models.CharField(max_length=20, unique=True, null=True, default=None)
+    balance=models.DecimalField(max_digits=12, decimal_places=2, default=0.00)
+
+    class Meta: 
+        constraints = [
+            models.CheckConstraint(
+                check=models.Q(balance__gte=0), 
+                name="%(app_label)s_%(class)s_balance_not_negative"
+            )
+        ]
+
+    def __str__(self):
+        return f"Conta {self.account_number} - {self.owner.username}"

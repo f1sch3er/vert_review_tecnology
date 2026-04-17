@@ -1,10 +1,7 @@
-from django.db import models
-
-from django.db import models
 import uuid
-from accounts.models import Client
-
 from django.db import models
+from accounts.models import Client
+from django.db.models import Q, CheckConstraint 
 
 class TransferType(models.TextChoices):
     PIX = 'PIX', 'Pix'
@@ -27,7 +24,7 @@ class Transaction(models.Model):
         related_name='transfer_send'
     )
     
-    to_account =  models.UUIDField(
+    to_account =  models.ForeignKey(
         Client,
         on_delete=models.PROTECT,
         related_name='transfer_received'
@@ -35,11 +32,20 @@ class Transaction(models.Model):
     
     amount = models.DecimalField(max_digits=19, decimal_places=2)
     
-    transfer_type = models.CharField(choices=TransferType.TYPE_TRANSFER)
+    transfer_type = models.CharField(choices=TransferType, max_length=12)
 
-    transfer_status = models.CharField(choices=StatusTransfer.STATUS_TRANSFER, default=StatusTransfer.STATUS_TRANSFER.PENDING)
+    transfer_status = models.CharField(choices=StatusTransfer, default=StatusTransfer.PENDING, max_length=12)
 
     idempotency_key = models.UUIDField(unique=True, null=True, blank=True)
 
     transfer_created = models.DateTimeField(auto_now=True)
 
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                check=models.Q(amount__gt=0),
+                name="%(app_label)s_%(class)s_transaction_amount_must_be_positive"
+            )
+        ]
+
+        

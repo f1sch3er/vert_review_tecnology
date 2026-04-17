@@ -13,8 +13,8 @@ O foco é demonstrar senioridade em sistemas críticos, abordando:
 ## 🚀 Guia de Implementação (To-Do List)
 
 ### Fase 1: Infraestrutura e Modelagem (O "Coração")
-- [ ] **Dockerização:** Criar um `docker-compose.yml` com PostgreSQL, Redis e Kafka/RabbitMQ.
-- [ ] **Database Schema:** - Tabela `Accounts`: ID, Nome, Saldo.
+- [x] **Dockerização:** Criar um `docker-compose.yml` com PostgreSQL, Redis e Kafka/RabbitMQ.
+- [x] **Database Schema:** - Tabela `Accounts`: ID, Nome, Saldo.
     - Tabela `Transactions`: ID Único, Conta Origem, Valor, Tipo (Credit/Debit), Status, IdempotencyKey.
 - [ ] **Constraints de Banco:** Implementar uma `CheckConstraint` no Django para garantir que o saldo da conta nunca seja negativo.
 
