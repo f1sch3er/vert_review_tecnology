@@ -1,0 +1,15 @@
+# Framework principal
+django>=5.0,<5.1
+
+# API Rest (DRF)
+djangorestframework
+markdown       # Suporte para documentação no DRF
+django-filter  # Facilita filtros em APIs
+
+# AWS & LocalStack
+boto3          # SDK oficial da AWS
+botocore
+
+# Utilidades
+django-environ # Para gerenciar variáveis de ambiente (.env)
+requests       # Biblioteca HTTP padrão

@@ -1,0 +1,57 @@
+services:
+  # --- BANCO DE DADOS ---
+  db:
+    image: postgres:15-alpine
+    container_name: vert_training_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    environment:
+      - POSTGRES_DB=vert_db
+      - POSTGRES_USER=pedro
+      - POSTGRES_PASSWORD=fischer_pass
+    ports:
+      - "5432:5432"
+
+  # --- CACHE / BROKER LEVE ---
+  redis:
+    image: redis:7-alpine
+    container_name: vert_training_redis
+    ports:
+      - "6379:6379"
+
+  # --- MENSAGERIA (KAFKA) ---
+  # Redpanda é uma alternativa leve e 100% compatível com a API do Kafka
+  # Perfeito para desenvolvimento local sem consumir 4GB de RAM
+  kafka:
+    image: docker.redpanda.com/redpandadata/redpanda:v23.2.1
+    container_name: vert_training_kafka
+    command:
+      - redpanda start
+      - --smp 1
+      - --overprovisioned
+      - --kafka-addr internal://0.0.0.0:9092,external://0.0.0.0:19092
+      - --advertise-kafka-addr internal://kafka:9092,external://localhost:19092
+      - --pandaproxy-addr 0.0.0.0:8082
+      - --advertise-pandaproxy-addr localhost:8082
+    ports:
+      - "19092:19092"
+      - "8082:8082"
+
+  # --- INTERFACE VISUAL DO KAFKA ---
+  console:
+    image: docker.redpanda.com/redpandadata/console:v2.3.1
+    container_name: vert_training_kafka_console
+    entrypoint: /bin/sh
+    command: -c "echo \"$$CONSOLE_CONFIG_FILE\" > /tmp/config.yml; /app/console"
+    environment:
+      CONFIG_FILEPATH: /tmp/config.yml
+      CONSOLE_CONFIG_FILE: |
+        kafka:
+          brokers: ["kafka:9092"]
+    ports:
+      - "8080:8080"
+    depends_on:
+      - kafka
+
+volumes:
+  postgres_data:
