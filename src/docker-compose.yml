@@ -1,5 +1,4 @@
 services:
-
   db:
     image: postgres:15-alpine
     container_name: vert_training_db
@@ -34,20 +33,22 @@ services:
       - "8082:8082"
 
   app:
-    build: . # O Docker vai usar o Dockerfile da pasta atual
+    build: .
     container_name: vert_training_app
     ports:
       - "5000:5000"
     environment:
-      # Variáveis para sua aplicação Python usar
+      - PYTHONPATH=/app
+      - DJANGO_SETTINGS_MODULE=core.settings
       - DATABASE_URL=postgresql://pedro:fischer_pass@db:5432/vert_db
       - REDIS_URL=redis://redis:6379/0
       - KAFKA_BROKERS=kafka:9092
+      - PYTHONUNBUFFERED=1
     depends_on:
       - db
       - redis
       - kafka
-      
+
   console:
     image: docker.redpanda.com/redpandadata/console:v2.3.1
     container_name: vert_training_kafka_console

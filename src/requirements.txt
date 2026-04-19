@@ -13,3 +13,9 @@ botocore
 # Utilidades
 django-environ # Para gerenciar variáveis de ambiente (.env)
 requests       # Biblioteca HTTP padrão
+
+psycopg2-binary
+django-environ
+dj-database-url
+
+gunicorn==21.2.0
