@@ -1,5 +1,5 @@
 services:
-  # --- BANCO DE DADOS ---
+
   db:
     image: postgres:15-alpine
     container_name: vert_training_db
@@ -12,16 +12,12 @@ services:
     ports:
       - "5432:5432"
 
-  # --- CACHE / BROKER LEVE ---
   redis:
     image: redis:7-alpine
     container_name: vert_training_redis
     ports:
       - "6379:6379"
 
-  # --- MENSAGERIA (KAFKA) ---
-  # Redpanda é uma alternativa leve e 100% compatível com a API do Kafka
-  # Perfeito para desenvolvimento local sem consumir 4GB de RAM
   kafka:
     image: docker.redpanda.com/redpandadata/redpanda:v23.2.1
     container_name: vert_training_kafka
@@ -37,7 +33,21 @@ services:
       - "19092:19092"
       - "8082:8082"
 
-  # --- INTERFACE VISUAL DO KAFKA ---
+  app:
+    build: . # O Docker vai usar o Dockerfile da pasta atual
+    container_name: vert_training_app
+    ports:
+      - "5000:5000"
+    environment:
+      # Variáveis para sua aplicação Python usar
+      - DATABASE_URL=postgresql://pedro:fischer_pass@db:5432/vert_db
+      - REDIS_URL=redis://redis:6379/0
+      - KAFKA_BROKERS=kafka:9092
+    depends_on:
+      - db
+      - redis
+      - kafka
+      
   console:
     image: docker.redpanda.com/redpandadata/console:v2.3.1
     container_name: vert_training_kafka_console
