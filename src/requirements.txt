@@ -84,4 +84,5 @@ websockets==16.0
 #windows-curses==2.4.2
 yarl==1.23.0
 whitenoise==6.6.0
+psycopg[binary]
 gunicorn==21.2.0

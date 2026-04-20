@@ -1,9 +1,10 @@
-# accounts/views.py
+from rest_framework.response import Response
 from rest_framework import viewsets, mixins
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.contrib.auth import get_user_model
-
-from accounts.serializers.RegisterAccountSerializer import AccountLoginSerializer, RegisterAccountSerializer
+from rest_framework_simplejwt.tokens import RefreshToken
+from accounts.models import Address, Client
+from accounts.serializers.AccountSerializers import AccountLoginSerializer, CreateAddressSerializer, CreateClientSerializer, DetailUserSerializer, RegisterAccountSerializer
 
 User = get_user_model()
 
@@ -28,13 +29,27 @@ class AccountLoginViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet):
             'access': str(refresh.access_token),
             'refresh': str(refresh),
             'user': {
-                'username': user.username,
+                'id': user.id,
                 'email': user.email,
             }
-        }, status=status.HTTP_200_OK)
+        }, status=200)
 
 
-class AccountViewSet(viewsets.ModelViewSet):
+class AccountDetailViewset(viewsets.ModelViewSet):
     queryset = User.objects.all()
-    serializer_class = RegisterAccountSerializer
+    serializer_class = DetailUserSerializer
     permission_classes = [IsAuthenticated]
+
+
+
+class CreateClientViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet):
+    queryset = Client.objects.all()
+    serializer_class = CreateClientSerializer
+    permission_classes = [IsAuthenticated]
+
+class CreateAddressViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet):
+    queryset = Address.objects.all()
+    serializer_class = CreateAddressSerializer
+    permission_classes = [IsAuthenticated]
+
+
