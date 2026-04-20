@@ -1,0 +1,49 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C# / .NET (Caso use algo de integração)
+bin/
+obj/
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Database (Arquivos locais do PostgreSQL/Docker)
+/postgres_data/
+/db_data/
+*.sqlite3
+
+# Docker
+.docker-compose.override.yml
+
+# Django specific
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+staticfiles/
+media/
+
+# Logs
+*.log
+vert_training_app.log
+
+# OS generated files
+.DS_Store
+.DS_Store?
+ehthumbs.db
+Icon?
+Thumbs.db
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo

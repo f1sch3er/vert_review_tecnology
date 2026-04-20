@@ -1,9 +1,28 @@
 from django.db import models
 from django.conf import settings
-from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin
+from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin, UserManager
 
+class UserManager(BaseUserManager):
+    def create_user(self, email, password=None, **extra_fields):
+        if not email:
+            raise ValueError('O e-mail é obrigatório')
+        
+        email = self.normalize_email(email)
+        
+        extra_fields.pop('username', None) 
+        
+        user = self.model(email=email, **extra_fields)
+        user.set_password(password) 
+        user.save(using=self._db)
+        return user
 
+    def create_superuser(self, email, password=None, **extra_fields):
+        extra_fields.setdefault('is_staff', True)
+        extra_fields.setdefault('is_superuser', True)
+        extra_fields.setdefault('is_admin', True)
 
+        return self.create_user(email, password, **extra_fields)
+    
 # MUDANDO O LOGIN DEFAULT, PARA O EMAIL E CRIANDO O MODELO DE USUÁRIO PERSONALIZADO
 class User(AbstractBaseUser, PermissionsMixin):
     email = models.EmailField(unique=True)
@@ -14,6 +33,8 @@ class User(AbstractBaseUser, PermissionsMixin):
     password = models.CharField(max_length=128)
 
     is_admin = models.BooleanField(default=False)
+    
+    objects = UserManager()
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['first_name', 'last_name']
@@ -21,27 +42,24 @@ class User(AbstractBaseUser, PermissionsMixin):
     def __str__(self):
         return self.email
 
-
 class Address(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
     street = models.CharField(max_length=255)
     city = models.CharField(max_length=100)
     state = models.CharField(max_length=100)
     zip_code = models.CharField(max_length=20)
-
+    Client = models.ForeignKey('Client', on_delete=models.CASCADE, related_name='addresses', null=True, blank=True)
 
 class DocumentType(models.TextChoices):
     CPF = 'CPF', 'Cpf'
     CNPJ = 'CNPJ', 'Cnpj'
 
-
 class Client(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='client_profile')
     address = models.OneToOneField(Address, on_delete=models.CASCADE)
 
     phone_number = models.CharField(max_length=20)
     birth_date = models.DateField()
-    document_number = models.CharField(max_length=50)
+    document_number = models.CharField(max_length=50, unique=True)
     document_type = models.CharField(max_length=15, choices=DocumentType)
 
     created_at = models.DateTimeField(auto_now_add=True, blank=True, null=True)
