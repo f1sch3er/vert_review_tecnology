@@ -36,7 +36,7 @@ class AccountLoginViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet):
 
 
 class AccountDetailViewset(viewsets.ModelViewSet):
-    queryset = User.objects.all()
+    queryset = Client.objects.all()
     serializer_class = DetailUserSerializer
     permission_classes = [IsAuthenticated]
 

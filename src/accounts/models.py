@@ -47,7 +47,6 @@ class Address(models.Model):
     city = models.CharField(max_length=100)
     state = models.CharField(max_length=100)
     zip_code = models.CharField(max_length=20)
-    Client = models.ForeignKey('Client', on_delete=models.CASCADE, related_name='addresses', null=True, blank=True)
 
 class DocumentType(models.TextChoices):
     CPF = 'CPF', 'Cpf'

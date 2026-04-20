@@ -1,3 +1,5 @@
+from xmlrpc import client
+
 from django.contrib.auth import authenticate
 from rest_framework import  serializers
 from accounts.models import Address, Client, User
@@ -55,7 +57,6 @@ class CreateClientSerializer(serializers.ModelSerializer):
         model = Client
         fields = (
             'phone_number',
-            'address',
             'birth_date',
             'document_number',
             'document_type'
@@ -67,8 +68,9 @@ class CreateClientSerializer(serializers.ModelSerializer):
         if not user.is_authenticated:
             raise serializers.ValidationError("Usuário não autenticado.")
         
-        if hasattr(user, 'client_profile'):
+        if Client.objects.filter(user=user).exists():
             raise serializers.ValidationError("O usuário já possui um perfil de cliente.")
+        
         
         return Client.objects.create(user=user, **validated_data)
 
@@ -85,8 +87,8 @@ class CreateAddressSerializer(serializers.ModelSerializer):
         if not client:
             raise serializers.ValidationError("Erro interno: O usuário não possui um perfil de cliente associado.")
         
-        
-        address = Address.objects.create(client=client, **validated_data)
+        address = Address.objects.create(**validated_data)
+
         client.address = address
         client.save()
 
@@ -103,7 +105,6 @@ class DetailUserSerializer(serializers.ModelSerializer):
             'email', 
             'first_name', 
             'last_name', 
-            'user', 
             'address'
         )
 

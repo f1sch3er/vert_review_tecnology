@@ -1,20 +1,25 @@
-FROM python 
+# Dockerfile
+FROM python:3.12
+
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
 
 RUN apt-get update && apt-get install -y \
-    libpq-dev \
     gcc \
+    libpq-dev \
+    netcat-openbsd \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
 COPY requirements.txt .
-
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-RUN DJANGO_SETTINGS_MODULE=core.settings \
-    DATABASE_URL=postgres://none:none@none:5432/none \
-    python manage.py collectstatic --noinput --clear
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
-CMD ["python", "-m", "gunicorn", "--bind", "0.0.0.0:5000", "core.wsgi:application"]
+EXPOSE 5000
+
+CMD ["/entrypoint.sh"]

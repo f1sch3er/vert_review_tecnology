@@ -35,7 +35,7 @@ services:
   app:
     build: .
     env_file: .env
-    command: gunicorn --bind 0.0.0.0:5000 core.wsgi:application --reload # Use --reload for development, remove it in production
+    command: /entrypoint.sh # Use --reload for development, remove it in production
     container_name: vert_training_app
     ports:
       - "5000:5000"
