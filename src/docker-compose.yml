@@ -5,9 +5,9 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data/
     environment:
-      - POSTGRES_DB=vert_db
-      - POSTGRES_USER=pedro
-      - POSTGRES_PASSWORD=fischer_pass
+    - POSTGRES_DB=${POSTGRES_DB}
+    - POSTGRES_USER=${POSTGRES_USER}
+    - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
     ports:
       - "5432:5432"
 
@@ -37,13 +37,15 @@ services:
     container_name: vert_training_app
     ports:
       - "5000:5000"
+    volumes:
+      - .:/app
     environment:
-      - PYTHONPATH=/app
-      - DJANGO_SETTINGS_MODULE=core.settings
-      - DATABASE_URL=postgresql://pedro:fischer_pass@db:5432/vert_db
-      - REDIS_URL=redis://redis:6379/0
-      - KAFKA_BROKERS=kafka:9092
-      - PYTHONUNBUFFERED=1
+      - PYTHONPATH=${PYTHONPATH}
+      - DJANGO_SETTINGS_MODULE=${DJANGO_SETTINGS_MODULE}
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+      - KAFKA_BROKERS=${KAFKA_BROKERS}
+      - PYTHONUNBUFFERED=${PYTHONUNBUFFERED}
     depends_on:
       - db
       - redis
