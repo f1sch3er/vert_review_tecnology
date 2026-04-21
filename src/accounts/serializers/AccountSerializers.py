@@ -1,5 +1,3 @@
-from xmlrpc import client
-
 from django.contrib.auth import authenticate
 from rest_framework import  serializers
 from accounts.models import Address, Client, User

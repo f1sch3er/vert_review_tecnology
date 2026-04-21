@@ -40,6 +40,8 @@ class AccountDetailViewset(viewsets.ModelViewSet):
     serializer_class = DetailUserSerializer
     permission_classes = [IsAuthenticated]
 
+    def get_queryset(self):
+        return Client.objects.filter(user=self.request.user)
 
 
 class CreateClientViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet):

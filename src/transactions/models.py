@@ -38,8 +38,9 @@ class Transaction(models.Model):
 
     idempotency_key = models.UUIDField(unique=True, null=True, blank=True)
 
-    transfer_created = models.DateTimeField(auto_now=True)
-
+    transfer_created = models.DateTimeField(auto_now_add=True) # auto_now_add=True para definir a data de criação e não permitir alterações posteriores
+    transfer_updated = models.DateTimeField(auto_now=True) # auto_now=True para atualizar a data sempre que o registro for salvo
+    
     class Meta:
         constraints = [
             models.CheckConstraint(
