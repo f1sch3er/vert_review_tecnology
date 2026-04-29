@@ -87,3 +87,4 @@ whitenoise==6.6.0
 psycopg[binary]
 kafka-python==2.0.2
 gunicorn==21.2.0
+drf-spectacular

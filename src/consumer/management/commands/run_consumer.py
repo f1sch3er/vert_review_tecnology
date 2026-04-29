@@ -13,8 +13,8 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         consumer = KafkaConsumer(
-            'transactions',
-            bootstrap_servers=['localhost:9092'],
+            'transactions.created',
+            bootstrap_servers=['localhost:19092'],
             value_deserializer=lambda m: json.loads(m.decode('utf-8')),
             auto_offset_reset='earliest',
             enable_auto_commit=False,
@@ -36,6 +36,7 @@ class Command(BaseCommand):
         transaction_id = payload.get('transaction_id')
 
         if payload.get('status') == 'SETTLED':
+            logging.info(f"Transação já liquidada: {payload}")
             return
         
         if payload.get('idempotency_key') is None:
@@ -64,7 +65,6 @@ class Command(BaseCommand):
                     transaction_selected.status = 'SETTLED'
                 elif transaction_selected.amount > 1000:
                     transaction_selected.status = 'REVIEW'
-                
-
-                
+                    
+                logging.info(f"Transação processada: {payload}")
                 transaction_selected.save()

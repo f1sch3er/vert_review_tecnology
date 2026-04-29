@@ -14,7 +14,7 @@ class RegisterAccountViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet):
     permission_classes = [AllowAny]
 
 
-class AccountLoginViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet): 
+class AuthViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet): 
     serializer_class = AccountLoginSerializer
     permission_classes = [AllowAny]
 
@@ -35,7 +35,7 @@ class AccountLoginViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet):
         }, status=200)
 
 
-class AccountDetailViewset(viewsets.ModelViewSet):
+class ClientDetailViewset(viewsets.ModelViewSet):
     queryset = Client.objects.all()
     serializer_class = DetailUserSerializer
     permission_classes = [IsAuthenticated]
@@ -44,12 +44,12 @@ class AccountDetailViewset(viewsets.ModelViewSet):
         return Client.objects.filter(user=self.request.user)
 
 
-class CreateClientViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet):
+class ClientViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet):
     queryset = Client.objects.all()
     serializer_class = CreateClientSerializer
     permission_classes = [IsAuthenticated]
 
-class CreateAddressViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet):
+class AddressViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet):
     queryset = Address.objects.all()
     serializer_class = CreateAddressSerializer
     permission_classes = [IsAuthenticated]

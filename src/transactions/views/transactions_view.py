@@ -1,7 +1,8 @@
 from django.shortcuts import render
 from transactions.models import StatusTransfer, Transaction
 from transactions.serializers.transactions_serializer import TransactionsSerializer
-from rest_framework import viewsets, permissions as permission, response as Response, status as status
+from rest_framework import viewsets, permissions as permission, status
+from rest_framework.response import Response
 
 from transactions.services.transaction_producer import TransactionProducer
 
