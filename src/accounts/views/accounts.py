@@ -3,8 +3,8 @@ from rest_framework import viewsets, mixins
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.contrib.auth import get_user_model
 from rest_framework_simplejwt.tokens import RefreshToken
-from accounts.models import Address, Client
-from accounts.serializers.AccountSerializers import AccountLoginSerializer, CreateAddressSerializer, CreateClientSerializer, DetailUserSerializer, RegisterAccountSerializer
+from accounts.models import Account, Address, Client
+from accounts.serializers.AccountSerializers import AccountLoginSerializer, AccountSerializer, CreateAddressSerializer, CreateClientSerializer, DetailUserSerializer, RegisterAccountSerializer
 
 User = get_user_model()
 
@@ -12,7 +12,6 @@ class RegisterAccountViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet):
     queryset = User.objects.all()
     serializer_class = RegisterAccountSerializer
     permission_classes = [AllowAny]
-
 
 class AuthViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet): 
     serializer_class = AccountLoginSerializer
@@ -34,7 +33,6 @@ class AuthViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet):
             }
         }, status=200)
 
-
 class ClientDetailViewset(viewsets.ModelViewSet):
     queryset = Client.objects.all()
     serializer_class = DetailUserSerializer
@@ -42,7 +40,6 @@ class ClientDetailViewset(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return Client.objects.filter(user=self.request.user)
-
 
 class ClientViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet):
     queryset = Client.objects.all()
@@ -54,4 +51,19 @@ class AddressViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet):
     serializer_class = CreateAddressSerializer
     permission_classes = [IsAuthenticated]
 
+class AccountCreateView(mixins.CreateModelMixin, viewsets.GenericViewSet):
+    queryset = Account.objects.all()
+    serializer_class = AccountSerializer
+    permission_classes = [IsAuthenticated]
 
+    def get_queryset(self):
+        return self.queryset.filter(user=self.request.user)
+    
+    def perform_create(self, serializer):
+        user = self.request.user
+        is_admin = getattr(user, 'is_admin', False) or getattr(user, 'is_staff', False) or getattr(user, 'is_superuser', False)
+
+        if is_admin and 'owner' in self.request.data:
+            serializer.save()
+        else:
+            serializer.save(owner=self.request.user)

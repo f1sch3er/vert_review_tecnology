@@ -1,6 +1,6 @@
 from django.contrib.auth import authenticate
 from rest_framework import  serializers
-from accounts.models import Address, Client, User
+from accounts.models import Account, Address, Client, User
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
@@ -49,7 +49,6 @@ class AccountLoginSerializer(serializers.Serializer):
         attrs['user'] = user
         return attrs
     
-
 class CreateClientSerializer(serializers.ModelSerializer):
     class Meta:
         model = Client
@@ -71,8 +70,7 @@ class CreateClientSerializer(serializers.ModelSerializer):
         
         
         return Client.objects.create(user=user, **validated_data)
-
-        
+ 
 class CreateAddressSerializer(serializers.ModelSerializer):
     class Meta:
         model = Address
@@ -106,4 +104,9 @@ class DetailUserSerializer(serializers.ModelSerializer):
             'address'
         )
 
+class AccountSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Account
+        fields = ['id', 'owner','account_number', 'balance', 'created_at']
+        read_only_fields = ['account_number', 'balance', 'created_at']
 
