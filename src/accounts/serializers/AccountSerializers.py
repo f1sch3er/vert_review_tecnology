@@ -52,24 +52,23 @@ class AccountLoginSerializer(serializers.Serializer):
 class CreateClientSerializer(serializers.ModelSerializer):
     class Meta:
         model = Client
-        fields = (
-            'phone_number',
-            'birth_date',
-            'document_number',
-            'document_type'
-        )
+        fields = ['user', 'phone_number', 'birth_date', 'document_number', 'document_type']
+        #extract_kwargs = {'user': {'required': False},}
 
     def create(self, validated_data):
-        user = self.context["request"].user
+        user = validated_data.get('user')
 
-        if not user.is_authenticated:
+        if not user:
+            user = self.context['request'].user
+
+        if not user or not user.is_authenticated:
             raise serializers.ValidationError("Usuário não autenticado.")
         
         if Client.objects.filter(user=user).exists():
             raise serializers.ValidationError("O usuário já possui um perfil de cliente.")
         
         
-        return Client.objects.create(user=user, **validated_data)
+        return Client.objects.create(**validated_data)
  
 class CreateAddressSerializer(serializers.ModelSerializer):
     class Meta:

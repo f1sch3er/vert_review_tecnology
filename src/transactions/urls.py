@@ -5,7 +5,7 @@ from transactions.views.transactions_view import TransactionsView
 
 router = DefaultRouter()
 
-router.register(r'transactions', TransactionsView, basename='transactions')
+router.register(r'', TransactionsView, basename='transactions')
 
 urlpatterns = [
     path('', include(router.urls)),

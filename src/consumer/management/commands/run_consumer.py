@@ -1,6 +1,6 @@
+import os
 import json
 import logging
-
 from django.core.management.base import BaseCommand
 from kafka import KafkaConsumer
 from django.db import transaction
@@ -12,9 +12,16 @@ class Command(BaseCommand):
     help = 'Inicia o consumidor Kafka para processar transações'
 
     def handle(self, *args, **options):
+        
+        self.broker = os.getenv(
+            "KAFKA_BROKERS",
+            "kafka:9092"
+        )
+
+
         consumer = KafkaConsumer(
             'transactions.created',
-            bootstrap_servers=['localhost:19092'],
+            bootstrap_servers=[self.broker],
             value_deserializer=lambda m: json.loads(m.decode('utf-8')),
             auto_offset_reset='earliest',
             enable_auto_commit=False,

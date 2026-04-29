@@ -28,6 +28,8 @@ services:
       - --advertise-kafka-addr internal://kafka:9092,external://localhost:19092
       - --pandaproxy-addr 0.0.0.0:8082
       - --advertise-pandaproxy-addr localhost:8082
+      - --set auto_create_topics_enabled=true
+      - --set enable_idempotence=true
     ports:
       - "19092:19092"
       - "8082:8082"

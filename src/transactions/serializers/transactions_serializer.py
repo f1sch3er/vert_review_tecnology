@@ -4,6 +4,10 @@ from rest_framework import  serializers
 
 class TransactionsSerializer(serializers.ModelSerializer):
     id = serializers.UUIDField(read_only=True)
+    
+    from_account_number = serializers.CharField(source='from_account.account_number', read_only=True)
+    to_account_number = serializers.CharField(source='to_account.account_number', read_only=True)
+
     transfer_created = serializers.DateTimeField(read_only=True)
     transfer_status = serializers.CharField(read_only=True)
 
@@ -11,8 +15,8 @@ class TransactionsSerializer(serializers.ModelSerializer):
         model = Transaction
         fields = [
             'id',
-            'from_account',
-            'to_account',
+            'from_account_number',
+            'to_account_number',
             'amount',
             'transfer_type',
             'transfer_status',
@@ -21,12 +25,15 @@ class TransactionsSerializer(serializers.ModelSerializer):
 
 
     def validate(self, attrs):
+        from_account = attrs.get('from_account')
+        to_account = attrs.get('to_account')
+        amount = attrs.get('amount')
 
-        if self.data.get('from_account') == self.data.get('to_account'):
+        if from_account == to_account:
             raise serializers.ValidationError({'to_account': 'A conta de destino deve ser diferente da conta de origem.'})
         
-        return self.data
-    
-    def validate_amount(self, value):
-        if value <= 0:
+        if amount and amount <= 0:
             raise serializers.ValidationError({'amount': 'O valor da transferência deve ser maior que zero.'})
+        
+        return attrs
+    

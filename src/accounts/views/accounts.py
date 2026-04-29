@@ -5,6 +5,7 @@ from django.contrib.auth import get_user_model
 from rest_framework_simplejwt.tokens import RefreshToken
 from accounts.models import Account, Address, Client
 from accounts.serializers.AccountSerializers import AccountLoginSerializer, AccountSerializer, CreateAddressSerializer, CreateClientSerializer, DetailUserSerializer, RegisterAccountSerializer
+from core.utils import is_admin
 
 User = get_user_model()
 
@@ -41,10 +42,40 @@ class ClientDetailViewset(viewsets.ModelViewSet):
     def get_queryset(self):
         return Client.objects.filter(user=self.request.user)
 
-class ClientViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet):
+class ClientViewSet(viewsets.ModelViewSet):
     queryset = Client.objects.all()
     serializer_class = CreateClientSerializer
     permission_classes = [IsAuthenticated]
+
+    def get_queryset(self, request, *args, **kwargs):
+        user = self.request.user
+        if is_admin(user):
+            return self.queryset.all()
+        return self.queryset.filter(user=self.request.user)
+
+
+    def create(self, request, *args, **kwargs):
+        data_request = request.data.copy()
+
+        target_user_id = data_request.get('user')
+
+        if not is_admin(request.user):
+            if not target_user_id:
+                data_request['user'] = request.user.id
+
+        else:
+            data_request['user'] = target_user_id
+        
+        print(f"Data request after modification: {data_request}", flush=True)
+
+        serializer = self.get_serializer(data=data_request)
+        serializer.is_valid(raise_exception=True)
+        print(f"Serializer validated data: {serializer.validated_data}", flush=True)
+        serializer.save()
+
+        self.headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=201, headers=self.headers)
+    
 
 class AddressViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet):
     queryset = Address.objects.all()
