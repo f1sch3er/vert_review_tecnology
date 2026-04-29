@@ -3,12 +3,11 @@ import os
 import logging
 from kafka import KafkaProducer
 
-
 class TransactionProducer:
     def __init__(self, producer):
         self.logger = logging.getLogger(__name__)
 
-        self.broker = os.getenv('KAFKA_BROKER', 'localhost:9092')
+        self.broker = os.getenv('KAFKA_BROKERS', 'localhost:9092')
 
         self.producer = KafkaProducer(
             bootstrap_servers=[self.broker],
