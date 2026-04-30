@@ -1,18 +1,36 @@
-from rest_framework.response import Response
-from rest_framework import viewsets, mixins
-from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.contrib.auth import get_user_model
+from rest_framework import viewsets, mixins, status
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
+
 from accounts.models import Account, Address, Client
-from accounts.serializers.AccountSerializers import AccountLoginSerializer, AccountSerializer, CreateAddressSerializer, CreateClientSerializer, DetailUserSerializer, RegisterAccountSerializer
-from core.utils import is_admin
+
+from accounts.serializers.AccountSerializers import (
+    AccountDetailSerializer,
+    AccountLoginSerializer, 
+    AccountSerializer, 
+    CreateClientSerializer, 
+    DetailUserSerializer, 
+    RegisterAccountSerializer
+)
 
 User = get_user_model()
 
-class RegisterAccountViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet): 
+class NewUserViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet): 
     queryset = User.objects.all()
     serializer_class = RegisterAccountSerializer
     permission_classes = [AllowAny]
+
+
+    @action(detail=False, methods=['get'], permission_classes=[AllowAny], url_path='check-email')
+    def check_email_exists(self, request):
+        email = request.query_params.get('email')
+        exists = User.objects.filter(email=email).exists()
+        return Response({'exists': exists})
+    
+
 
 class AuthViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet): 
     serializer_class = AccountLoginSerializer
@@ -34,67 +52,45 @@ class AuthViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet):
             }
         }, status=200)
 
-class ClientDetailViewset(viewsets.ModelViewSet):
-    queryset = Client.objects.all()
-    serializer_class = DetailUserSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        return Client.objects.filter(user=self.request.user)
 
 class ClientViewSet(viewsets.ModelViewSet):
     queryset = Client.objects.all()
     serializer_class = CreateClientSerializer
     permission_classes = [IsAuthenticated]
 
-    def get_queryset(self, request, *args, **kwargs):
-        user = self.request.user
-        if is_admin(user):
-            return self.queryset.all()
-        return self.queryset.filter(user=self.request.user)
-
-
-    def create(self, request, *args, **kwargs):
-        data_request = request.data.copy()
-
-        target_user_id = data_request.get('user')
-
-        if not is_admin(request.user):
-            if not target_user_id:
-                data_request['user'] = request.user.id
-
-        else:
-            data_request['user'] = target_user_id
-        
-        print(f"Data request after modification: {data_request}", flush=True)
-
-        serializer = self.get_serializer(data=data_request)
-        serializer.is_valid(raise_exception=True)
-        print(f"Serializer validated data: {serializer.validated_data}", flush=True)
-        serializer.save()
-
-        self.headers = self.get_success_headers(serializer.data)
-        return Response(serializer.data, status=201, headers=self.headers)
-    
-
-class AddressViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet):
-    queryset = Address.objects.all()
-    serializer_class = CreateAddressSerializer
-    permission_classes = [IsAuthenticated]
-
-class AccountCreateView(mixins.CreateModelMixin, viewsets.GenericViewSet):
-    queryset = Account.objects.all()
-    serializer_class = AccountSerializer
-    permission_classes = [IsAuthenticated]
-
     def get_queryset(self):
-        return self.queryset.filter(user=self.request.user)
-    
+        user = self.request.user
+
+        if user.is_any_admin:
+            return Client.objects.all()
+        return Client.objects.filter(user=user)
+
     def perform_create(self, serializer):
         user = self.request.user
-        is_admin = getattr(user, 'is_admin', False) or getattr(user, 'is_staff', False) or getattr(user, 'is_superuser', False)
+        target_user_id = self.request.data.get('user')
 
-        if is_admin and 'owner' in self.request.data:
-            serializer.save()
+        if user.is_any_admin and target_user_id:
+            serializer.save(user_id=target_user_id)
         else:
-            serializer.save(owner=self.request.user)
+            serializer.save(user=user)   
+
+
+class AccountViewSet(viewsets.ReadOnlyModelViewSet):
+    permission_classes = [IsAuthenticated]
+    serializer_class = AccountDetailSerializer
+
+    def get_queryset(self):
+        user = self.request.user
+        queryset = Account.objects.select_related('owner__user', 'owner__address')
+        
+        if user.is_any_admin:
+            return queryset.all()
+        return queryset.filter(owner__user=user)
+
+    @action(detail=False, methods=['get'])
+    def me(self, request):
+        account = self.get_queryset().first()
+        if not account:
+            return Response({"detail": "Conta não encontrada."}, status=404)
+        serializer = self.get_serializer(account)
+        return Response(serializer.data)

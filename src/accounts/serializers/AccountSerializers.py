@@ -1,23 +1,47 @@
-from django.contrib.auth import authenticate
-from rest_framework import  serializers
+from django.contrib.auth import authenticate, get_user_model
+from django.contrib.auth.password_validation import validate_password
+from django.core import exceptions
+from django.db import transaction
+
+from rest_framework import serializers
+
 from accounts.models import Account, Address, Client, User
-from django.contrib.auth import get_user_model
 
 User = get_user_model()
+
+
 
 
 class RegisterAccountSerializer(serializers.ModelSerializer):
     password = serializers.CharField(
         write_only=True,
         style={'input_type': 'password'},
-        min_length=8
+        min_length=8,
+        help_text="Mínimo de 8 caracteres"
+    )
+    password_confirm = serializers.CharField(
+        write_only=True,
+        style={'input_type': 'password'}
     )
 
     class Meta:
         model = User
-        fields = ('email', 'password', 'first_name', 'last_name')
+        fields = ('email', 'password', 'password_confirm', 'first_name', 'last_name')
+
+    def validate(self, data):
+        if data['password'] != data['password_confirm']:
+            raise serializers.ValidationError({"password": "As senhas não conferem."})
+
+        try:
+            user = User(**data)
+            validate_password(data['password'], user)
+        except exceptions.ValidationError as e:
+            raise serializers.ValidationError({"password": list(e.messages)})
+
+        return data
 
     def create(self, validated_data):
+        validated_data.pop('password_confirm')
         return User.objects.create_user(**validated_data)
 
 class AccountLoginSerializer(serializers.Serializer):
@@ -48,64 +72,49 @@ class AccountLoginSerializer(serializers.Serializer):
         
         attrs['user'] = user
         return attrs
-    
-class CreateClientSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Client
-        fields = ['user', 'phone_number', 'birth_date', 'document_number', 'document_type']
-        #extract_kwargs = {'user': {'required': False},}
 
-    def create(self, validated_data):
-        user = validated_data.get('user')
-
-        if not user:
-            user = self.context['request'].user
-
-        if not user or not user.is_authenticated:
-            raise serializers.ValidationError("Usuário não autenticado.")
-        
-        if Client.objects.filter(user=user).exists():
-            raise serializers.ValidationError("O usuário já possui um perfil de cliente.")
-        
-        
-        return Client.objects.create(**validated_data)
- 
-class CreateAddressSerializer(serializers.ModelSerializer):
+class AddressSerializer(serializers.ModelSerializer):
     class Meta:
         model = Address
         fields = ('street', 'city', 'state', 'zip_code')
-    
-    def create(self, validated_data):
-        user = self.context['request'].user
-        client = getattr(user, 'client_profile', None)
 
-        if not client:
-            raise serializers.ValidationError("Erro interno: O usuário não possui um perfil de cliente associado.")
-        
-        address = Address.objects.create(**validated_data)
+class UserDetailSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ('email', 'first_name', 'last_name', 'is_any_admin')
 
-        client.address = address
-        client.save()
-
-        return address
-
-class DetailUserSerializer(serializers.ModelSerializer):
-    email = serializers.EmailField(read_only=True, source='user.email')
-    first_name = serializers.CharField(read_only=True, source='user.first_name')
-    last_name = serializers.CharField(read_only=True, source='user.last_name')
+class ClientDetailSerializer(serializers.ModelSerializer):
+    user = UserDetailSerializer(read_only=True)
+    address = AddressSerializer(read_only=True)
 
     class Meta:
         model = Client
-        fields = (
-            'email', 
-            'first_name', 
-            'last_name', 
-            'address'
-        )
+        fields = ('document_number', 'document_type', 'phone_number', 'birth_date', 'user', 'address')
 
-class AccountSerializer(serializers.ModelSerializer):
+
+class CreateClientSerializer(serializers.ModelSerializer):
+    address = AddressSerializer()
+
+    class Meta:
+        model = Client
+        fields = ('phone_number', 'birth_date', 'document_number', 'document_type', 'address')
+
+    def create(self, validated_data):
+        address_data = validated_data.pop('address')
+        user = self.context['request'].user
+
+        with transaction.atomic():
+            address = Address.objects.create(**address_data)
+            client = Client.objects.create(user=user, address=address, **validated_data)
+            Account.objects.create(owner=client)
+            
+            return client
+ 
+
+class AccountDetailSerializer(serializers.ModelSerializer):
+    owner = ClientDetailSerializer(read_only=True)
+
     class Meta:
         model = Account
-        fields = ['id', 'owner','account_number', 'balance', 'created_at']
-        read_only_fields = ['account_number', 'balance', 'created_at']
+        fields = ('account_number', 'balance', 'available_balance', 'created_at', 'owner')
 

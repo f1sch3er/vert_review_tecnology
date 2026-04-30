@@ -36,4 +36,17 @@ class TransactionsSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({'amount': 'O valor da transferência deve ser maior que zero.'})
         
         return attrs
-    
+
+
+class TransactionKafkaSerializer(serializers.ModelSerializer):
+    transaction_id = serializers.CharField(source='id')
+    from_account = serializers.CharField(source='from_account.account_number')
+    to_account = serializers.CharField(source='to_account.account_number')
+    status = serializers.CharField(source='transfer_status')
+
+    class Meta:
+        model = Transaction
+        fields = [
+            'transaction_id', 'from_account', 'to_account', 
+            'amount', 'transfer_type', 'idempotency_key', 'status'
+        ]

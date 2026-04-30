@@ -1,7 +1,7 @@
 from django.shortcuts import render
 from accounts.models import Account
 from transactions.models import StatusTransfer, Transaction
-from transactions.serializers.transactions_serializer import TransactionsSerializer
+from transactions.serializers.transactions_serializer import TransactionKafkaSerializer, TransactionsSerializer
 from rest_framework import viewsets, permissions as permission, status
 from rest_framework.response import Response
 
@@ -64,23 +64,10 @@ class TransactionsView(viewsets.ModelViewSet):
         idempotency_key = self.request.headers.get('idempotency_key')
 
         transaction = serializer.save(idempotency_key=idempotency_key)
+        kafka_serializer = TransactionKafkaSerializer(transaction)
+        payload = kafka_serializer.data
 
-        if not transaction:
-            raise ValueError("Erro ao criar a transação.")
-
-        print(f"Transação criada com ID: {transaction.from_account_id}", flush=True)
-        print(f"Transação criada com ID: {transaction.to_account_id}", flush=True)
-
-        payload = {
-            'transaction_id': str(transaction.id),
-            'from_account': str(transaction.from_account.account_number_id),
-            'to_account': str(transaction.to_account.account_number_id),
-            'amount': str(transaction.amount),
-            'transfer_type': transaction.transfer_type,
-            'idempotency_key': str(transaction.idempotency_key),
-            'status': StatusTransfer.PENDING,
-        }
-
+        
         print(f"Payload a ser enviado para Kafka: {payload}", flush=True)
 
         TransactionProducer.send_transaction(payload)
