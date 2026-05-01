@@ -108,15 +108,18 @@ class CreateClientSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         address_data = validated_data.pop('address')
-        user = self.context['request'].user
+        user = validated_data.pop('user') 
 
         with transaction.atomic():
             address = Address.objects.create(**address_data)
-            client = Client.objects.create(user=user, address=address, **validated_data)
+            client = Client.objects.create(
+                user=user,
+                address=address,
+                **validated_data
+            )
             Account.objects.create(owner=client)
-            
-            return client
- 
+
+        return client 
 
 class AccountDetailSerializer(serializers.ModelSerializer):
     owner = ClientDetailSerializer(read_only=True)

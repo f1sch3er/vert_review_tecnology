@@ -71,9 +71,9 @@ class ClientViewSet(viewsets.ModelViewSet):
         target_user_id = self.request.data.get('user')
 
         if user.is_any_admin and target_user_id:
-            serializer.save(user_id=target_user_id)
+            serializer.save(user=User.objects.get(id=target_user_id))
         else:
-            serializer.save(user=user)   
+            serializer.save(user=user)
 
 
 class AccountViewSet(viewsets.ReadOnlyModelViewSet):
