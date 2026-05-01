@@ -1,11 +1,7 @@
-from rest_framework_simplejwt import serializers
+from rest_framework import serializers
 
-
-class HypermediaSerializer(serializers.ModelSerializer):
+class HypermediaSerializer(serializers.Serializer):
     links = serializers.SerializerMethodField()
-
-    class Meta:
-        abstract = True
 
     def get_links(self, obj):
         return {}

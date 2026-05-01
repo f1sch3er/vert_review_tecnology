@@ -2,15 +2,14 @@ from django.contrib.auth import authenticate, get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.core import exceptions
 from django.db import transaction
-
 from rest_framework import serializers
-
+from rest_framework.reverse import reverse
 from accounts.models import Account, Address, Client, User
+from core.serializers import HypermediaSerializer
+
+
 
 User = get_user_model()
-
-
-
 
 class RegisterAccountSerializer(serializers.ModelSerializer):
     password = serializers.CharField(
@@ -80,6 +79,7 @@ class AccountLoginSerializer(serializers.Serializer):
         attrs['user'] = user
         return attrs
 
+    
 class AddressSerializer(serializers.ModelSerializer):
     class Meta:
         model = Address
@@ -125,3 +125,18 @@ class AccountDetailSerializer(serializers.ModelSerializer):
         model = Account
         fields = ('account_number', 'balance', 'available_balance', 'created_at', 'owner')
 
+
+class AuthResponseSerializer(serializers.Serializer):
+    access = serializers.CharField()
+    refresh = serializers.CharField()
+    user = UserDetailSerializer()
+    links = serializers.SerializerMethodField()
+
+    def get_links(self, obj):
+        request = self.context["request"]
+
+        return {
+            "self": reverse("auth-list", request=request),
+            "refresh": reverse("token_refresh", request=request),
+            "me": reverse("users-list", request=request),
+        }

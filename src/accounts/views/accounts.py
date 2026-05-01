@@ -11,7 +11,8 @@ from accounts.serializers.AccountSerializers import (
     AccountDetailSerializer,
     AccountLoginSerializer, 
     CreateClientSerializer, 
-    RegisterAccountSerializer
+    RegisterAccountSerializer,
+    AuthResponseSerializer
 )
 
 User = get_user_model()
@@ -37,18 +38,20 @@ class AuthViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet):
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        
+
         user = serializer.validated_data['user']
         refresh = RefreshToken.for_user(user)
         
-        return Response({
-            'access': str(refresh.access_token),
-            'refresh': str(refresh),
-            'user': {
-                'id': user.id,
-                'email': user.email,
-            }
-        }, status=200)
+        response_serializer = AuthResponseSerializer(
+            {
+                'access': str(refresh.access_token),
+                'refresh': str(refresh),
+                'user': user
+            },
+            context={'request': request}
+        )
+
+        return Response(response_serializer.data, status=status.HTTP_200_OK)
 
 
 class ClientViewSet(viewsets.ModelViewSet):
