@@ -33,7 +33,14 @@ class RegisterAccountSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({"password": "As senhas não conferem."})
 
         try:
-            user = User(**data)
+            user_data = data.copy()
+            user_data.pop("password_confirm", None)
+
+            user = User(
+                email=data.get("email"),
+                first_name=data.get("first_name"),
+                last_name=data.get("last_name"),
+            )
             validate_password(data['password'], user)
         except exceptions.ValidationError as e:
             raise serializers.ValidationError({"password": list(e.messages)})

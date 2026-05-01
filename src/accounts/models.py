@@ -6,6 +6,8 @@ from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, Permis
 from decimal import Decimal
 from django.utils import timezone
 
+from accounts.const import DocumentType
+
 class UserManager(BaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
         if not email:

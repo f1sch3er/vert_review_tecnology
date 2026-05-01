@@ -10,9 +10,7 @@ from accounts.models import Account, Address, Client
 from accounts.serializers.AccountSerializers import (
     AccountDetailSerializer,
     AccountLoginSerializer, 
-    AccountSerializer, 
     CreateClientSerializer, 
-    DetailUserSerializer, 
     RegisterAccountSerializer
 )
 

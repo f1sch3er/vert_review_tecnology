@@ -8,13 +8,13 @@ class Transaction(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     
     from_account =  models.ForeignKey(
-        'Account',
+        'accounts.Account',
         on_delete=models.PROTECT,
         related_name='transfer_send'
     )
     
     to_account =  models.ForeignKey(
-        'Account',
+        'accounts.Account',
         on_delete=models.PROTECT,
         related_name='transfer_received'
     )

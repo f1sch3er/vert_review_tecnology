@@ -1,5 +1,4 @@
-from accounts import models
-
+from django.db import models
 
 class DocumentType(models.TextChoices):
     CPF = 'CPF', 'Cpf'
