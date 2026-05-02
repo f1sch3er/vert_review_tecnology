@@ -5,7 +5,6 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
-
 from accounts.models import Account, Client
 
 from accounts.serializers.AccountSerializers import (
@@ -16,6 +15,7 @@ from accounts.serializers.AccountSerializers import (
     RegisterAccountSerializer,
     AuthResponseSerializer
 )
+from transactions.serializers.transactions_serializer import DepositTransactionSerializer
 
 User = get_user_model()
 
@@ -99,6 +99,9 @@ class ClientViewSet(viewsets.ModelViewSet):
 class AccountMeViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
 
+    def get_queryset(self):
+        return Account.objects.filter(owner__user=self.request.user)
+    
     def list(self, request):
         return Response({"detail": "Use o endpoint /me/ para ver sua conta."}, status=400)
 
@@ -110,3 +113,17 @@ class AccountMeViewSet(viewsets.ReadOnlyModelViewSet):
         
         serializer = AccountReadSerializer(account)
         return Response(serializer.data)
+    
+    @action(detail=False, methods=['post'], url_path='deposit')
+    def deposit(self, request):
+        account = self.get_queryset().first()
+        if not account:
+            return Response({"detail": "Conta não encontrada."}, status=404)
+        
+        serializer = DepositTransactionSerializer(data=request.data, context={'account': account})
+        serializer.is_valid(raise_exception=True)
+        transaction = serializer.save()
+
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+                
+           

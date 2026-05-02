@@ -1,7 +1,53 @@
+from accounts.const import StatusTransfer, TransferType
+from accounts.models import Account
 from transactions.models import Transaction
 from rest_framework import  serializers
+from django.db import transaction
 
+from transactions.services.transaction_producer import TransactionProducer
 
+    
+class DepositSerializer(serializers.Serializer):
+    amount = serializers.DecimalField(max_digits=19, decimal_places=2, min_value=0.01)
+    external_code = serializers.CharField(max_length=255, required=False)
+    idempotency_key = serializers.UUIDField(required=False)
+    
+class DepositTransactionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Transaction
+        fields = ['amount', 'idempotency_key', 'external_code']
+
+    def create(self, validated_data):
+        account = self.context['account']
+        amount = validated_data['amount']
+
+        with transaction.atomic():
+            account = Account.objects.select_for_update().get(pk=account.pk)
+            
+            account.balance += amount
+            account.save()
+
+            transaction = Transaction.objects.create(
+                to_account=account,
+                from_account=None,
+                amount=amount,
+                transfer_type=TransferType.DEPOSIT,
+                transfer_status=StatusTransfer.COMPLETED,
+                to_account_balance_after=account.balance,
+                **validated_data
+            )
+
+            payload = {
+                "transaction_id": str(transaction.id),
+                "amount": float(transaction.amount),
+                "to_account": account.account_number,
+                "idempotency_key": str(transaction.idempotency_key),
+                "status": transaction.transfer_status
+            }
+            
+            TransactionProducer.send_transaction(payload)
+            return transaction
+        
 class TransactionsSerializer(serializers.ModelSerializer):
     id = serializers.UUIDField(read_only=True)
     
@@ -36,7 +82,6 @@ class TransactionsSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({'amount': 'O valor da transferência deve ser maior que zero.'})
         
         return attrs
-
 
 class TransactionKafkaSerializer(serializers.ModelSerializer):
     transaction_id = serializers.CharField(source='id')
