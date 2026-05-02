@@ -15,6 +15,7 @@ from accounts.serializers.AccountSerializers import (
     RegisterAccountSerializer,
     AuthResponseSerializer
 )
+from transactions.models import Transaction
 from transactions.serializers.transactions_serializer import DepositTransactionSerializer
 
 User = get_user_model()
@@ -116,13 +117,18 @@ class AccountMeViewSet(viewsets.ReadOnlyModelViewSet):
     
     @action(detail=False, methods=['post'], url_path='deposit')
     def deposit(self, request):
+        idempotency_key = request.headers.get('idempotency_key')
+
+        if idempotency_key and Transaction.objects.filter(idempotency_key=idempotency_key).exists():
+            return Response({"detail": "Transação com essa chave de idempotência já existe."}, status=400)
+
         account = self.get_queryset().first()
         if not account:
             return Response({"detail": "Conta não encontrada."}, status=404)
         
-        serializer = DepositTransactionSerializer(data=request.data, context={'account': account})
+        serializer = DepositTransactionSerializer(data=request.data, context={'account': account, 'idempotency_key': idempotency_key})
         serializer.is_valid(raise_exception=True)
-        transaction = serializer.save()
+        serializer.save()
 
         return Response(serializer.data, status=status.HTTP_201_CREATED)
                 

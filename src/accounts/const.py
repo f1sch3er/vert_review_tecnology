@@ -8,6 +8,7 @@ class TransferType(models.TextChoices):
     PIX = 'PIX', 'Pix'
     TED = 'TED', 'Transferência Eletrônica Disponível'
     DOC = 'DOC', 'Documento de Ordem de Crédito'
+    DEPOSIT = 'DEPOSIT', 'Depósito'
 
 class StatusTransfer(models.TextChoices):
     PENDING = 'PENDING', 'Pendente'

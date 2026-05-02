@@ -10,6 +10,8 @@ class Transaction(models.Model):
     from_account =  models.ForeignKey(
         'accounts.Account',
         on_delete=models.PROTECT,
+        null=True,   
+        blank=True,  
         related_name='transfer_send'
     )
     
@@ -20,16 +22,12 @@ class Transaction(models.Model):
     )
     
     idempotency_key = models.UUIDField(unique=True, null=True, blank=True)
-    
     external_code = models.CharField(max_length=255, null=True, blank=True)
-
     amount = models.DecimalField(max_digits=19, decimal_places=2)
     transfer_type = models.CharField(choices=TransferType, max_length=12)
     transfer_status = models.CharField(choices=StatusTransfer, default=StatusTransfer.PENDING, max_length=12)
-    
     from_account_balance_after = models.DecimalField(max_digits=19, decimal_places=2, null=True)
     to_account_balance_after = models.DecimalField(max_digits=19, decimal_places=2, null=True)
-    
     transfer_created = models.DateTimeField(auto_now_add=True) 
     transfer_updated = models.DateTimeField(auto_now=True) 
     

@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from accounts.const import StatusTransfer, TransferType
 from accounts.models import Account
 from transactions.models import Transaction
@@ -13,10 +15,18 @@ class DepositSerializer(serializers.Serializer):
     idempotency_key = serializers.UUIDField(required=False)
     
 class DepositTransactionSerializer(serializers.ModelSerializer):
+    amount = serializers.DecimalField(
+        max_digits=19, 
+        decimal_places=2, 
+        min_value=Decimal('0.01') 
+    )
+    external_code = serializers.CharField(max_length=255, required=False)
+    idempotency_key = serializers.UUIDField(required=False)
+    
     class Meta:
         model = Transaction
         fields = ['amount', 'idempotency_key', 'external_code']
-
+    
     def create(self, validated_data):
         account = self.context['account']
         amount = validated_data['amount']
@@ -27,27 +37,30 @@ class DepositTransactionSerializer(serializers.ModelSerializer):
             account.balance += amount
             account.save()
 
-            transaction = Transaction.objects.create(
+            validated_data.pop('amount', None)
+            
+            tx = Transaction.objects.create(
                 to_account=account,
                 from_account=None,
                 amount=amount,
                 transfer_type=TransferType.DEPOSIT,
                 transfer_status=StatusTransfer.COMPLETED,
                 to_account_balance_after=account.balance,
-                **validated_data
+                **validated_data 
             )
 
             payload = {
-                "transaction_id": str(transaction.id),
-                "amount": float(transaction.amount),
+                "transaction_id": str(tx.id),
+                "amount": float(tx.amount),
                 "to_account": account.account_number,
-                "idempotency_key": str(transaction.idempotency_key),
-                "status": transaction.transfer_status
+                "idempotency_key": str(tx.idempotency_key),
+                "status": tx.transfer_status
             }
             
             TransactionProducer.send_transaction(payload)
-            return transaction
-        
+            
+            return tx  
+            
 class TransactionsSerializer(serializers.ModelSerializer):
     id = serializers.UUIDField(read_only=True)
     

@@ -1,9 +1,9 @@
 
 ## COMANDOS DOCKER
 
-# docker compose exec web python manage.py makemigrations
-# docker compose exec web python manage.py migrate
-# docker compose exec web python manage.py showmigrations
+# docker compose exec app python manage.py makemigrations
+# docker compose exec app python manage.py migrate
+# docker compose exec app python manage.py showmigrations
 
 # RODAR O PROJETO
 # docker compose up (AQUI O TERMINAL FICA PRESO, MAS VEMOS OS LOGS)
