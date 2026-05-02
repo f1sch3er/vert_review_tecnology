@@ -1,15 +1,17 @@
 from django.contrib.auth import get_user_model
 from rest_framework import viewsets, mixins, status
+from rest_framework import permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from accounts.models import Account, Address, Client
+from accounts.models import Account, Client
 
 from accounts.serializers.AccountSerializers import (
-    AccountDetailSerializer,
-    AccountLoginSerializer, 
+    AccountLoginSerializer,
+    AccountReadSerializer,
+    UserRegistrationResponseSerializer, 
     CreateClientSerializer, 
     RegisterAccountSerializer,
     AuthResponseSerializer
@@ -22,6 +24,24 @@ class NewUserViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet):
     serializer_class = RegisterAccountSerializer
     permission_classes = [AllowAny]
 
+    def create(self, request, *args, **kwargs):
+
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+
+        respose_serializer = UserRegistrationResponseSerializer(
+            user,
+            context={'request': request}
+        )
+
+        return Response(
+            {
+                "message": "Usuário registrado com sucesso! Bem-vindo ao nosso banco.",
+                "data": respose_serializer.data
+            },
+            status=status.HTTP_201_CREATED
+        )
 
     @action(detail=False, methods=['get'], permission_classes=[AllowAny], url_path='check-email')
     def check_email_exists(self, request):
@@ -76,22 +96,17 @@ class ClientViewSet(viewsets.ModelViewSet):
             serializer.save(user=user)
 
 
-class AccountViewSet(viewsets.ReadOnlyModelViewSet):
-    permission_classes = [IsAuthenticated]
-    serializer_class = AccountDetailSerializer
+class AccountMeViewSet(viewsets.ReadOnlyModelViewSet):
+    permission_classes = [permissions.IsAuthenticated]
 
-    def get_queryset(self):
-        user = self.request.user
-        queryset = Account.objects.select_related('owner__user', 'owner__address')
-        
-        if user.is_any_admin:
-            return queryset.all()
-        return queryset.filter(owner__user=user)
+    def list(self, request):
+        return Response({"detail": "Use o endpoint /me/ para ver sua conta."}, status=400)
 
-    @action(detail=False, methods=['get'])
+    @action(detail=False, methods=['get'], url_path='me')
     def me(self, request):
-        account = self.get_queryset().first()
+        account = Account.objects.filter(owner__user=request.user).first()
         if not account:
             return Response({"detail": "Conta não encontrada."}, status=404)
-        serializer = self.get_serializer(account)
+        
+        serializer = AccountReadSerializer(account)
         return Response(serializer.data)

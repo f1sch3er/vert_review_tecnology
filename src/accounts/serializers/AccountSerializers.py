@@ -5,8 +5,7 @@ from django.db import transaction
 from rest_framework import serializers
 from rest_framework.reverse import reverse
 from accounts.models import Account, Address, Client, User
-from core.serializers import HypermediaSerializer
-
+from django.shortcuts import get_object_or_404
 
 
 User = get_user_model()
@@ -50,6 +49,25 @@ class RegisterAccountSerializer(serializers.ModelSerializer):
         validated_data.pop('password_confirm')
         return User.objects.create_user(**validated_data)
 
+class UserRegistrationResponseSerializer(serializers.ModelSerializer):
+    full_name = serializers.ReadOnlyField(source='get_full_name')
+    links = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = ('id', 'email', 'full_name', 'links')
+
+    def get_links(self, obj):
+        request = self.context.get('request')
+        return {
+            "login": {
+                "rel": "authenticate",
+                "href": "/api/token/",
+                "method": "POST",
+                "description": "Obter token JWT para acessar a conta"
+            }
+        }
+    
 class AccountLoginSerializer(serializers.Serializer):
     email = serializers.EmailField()
     password = serializers.CharField(
@@ -79,7 +97,6 @@ class AccountLoginSerializer(serializers.Serializer):
         attrs['user'] = user
         return attrs
 
-    
 class AddressSerializer(serializers.ModelSerializer):
     class Meta:
         model = Address
@@ -97,7 +114,6 @@ class ClientDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = Client
         fields = ('document_number', 'document_type', 'phone_number', 'birth_date', 'user', 'address')
-
 
 class CreateClientSerializer(serializers.ModelSerializer):
     address = AddressSerializer()
@@ -117,17 +133,49 @@ class CreateClientSerializer(serializers.ModelSerializer):
                 address=address,
                 **validated_data
             )
-            Account.objects.create(owner=client)
 
         return client 
 
-class AccountDetailSerializer(serializers.ModelSerializer):
-    owner = ClientDetailSerializer(read_only=True)
+class ClientSummarySerializer(serializers.ModelSerializer):
+    full_name = serializers.ReadOnlyField(source='user.get_full_name')
+    email = serializers.ReadOnlyField(source='user.email')
+
+    class Meta:
+        model = Client
+        fields = ['id', 'full_name', 'email']
+
+class AccountReadSerializer(serializers.ModelSerializer):
+    owner_name = serializers.ReadOnlyField(source='owner.user.get_full_name')
 
     class Meta:
         model = Account
-        fields = ('account_number', 'balance', 'available_balance', 'created_at', 'owner')
+        fields = ['id', 'owner', 'owner_name', 'account_number', 'balance', 'blocked_balance', 'available_balance', 'created_at', 'updated_at'] 
 
+class CreateAccountSerializer(serializers.ModelSerializer):
+    user_id = serializers.IntegerField(required=False, write_only=True)
+
+    class Meta:
+        model = Account
+        fields = '__all__'
+
+    def create(self, validated_data):
+        request = self.context['request']
+        user = request.user
+        target_user_id = validated_data.pop('user_id', None)
+
+        if user.is_any_admin and target_user_id:
+            target_user = get_object_or_404(User, id=target_user_id)
+        else:
+            target_user = user
+
+
+        client = getattr(target_user, "client", None)
+
+        if not client:
+            raise serializers.ValidationError("Usuário não possui client.")
+
+        account = Account.objects.create(owner=client)
+        return account
 
 class AuthResponseSerializer(serializers.Serializer):
     access = serializers.CharField()
