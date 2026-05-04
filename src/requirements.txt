@@ -89,3 +89,4 @@ kafka-python-ng
 gunicorn==21.2.0
 drf-spectacular
 kafka-python-ng
+django-cors-headers

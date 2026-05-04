@@ -10,6 +10,7 @@ from accounts.models import Account, Client
 from accounts.serializers.AccountSerializers import (
     AccountLoginSerializer,
     AccountReadSerializer,
+    FullUserProfileSerializer,
     UserRegistrationResponseSerializer, 
     CreateClientSerializer, 
     RegisterAccountSerializer,
@@ -115,6 +116,34 @@ class AccountMeViewSet(viewsets.ReadOnlyModelViewSet):
         serializer = AccountReadSerializer(account)
         return Response(serializer.data)
     
+    @action(detail=False, methods=['get', 'patch'], url_path='profile')
+    def profile(self, request):
+        account = Account.objects.select_related(
+            'owner__user', 
+            'owner__address'
+        ).filter(owner__user=request.user).first()
+
+        if not account:
+            return Response({"detail": "Perfil não encontrado."}, status=404)
+        
+        if request.method == 'PATCH':
+            serializer = FullUserProfileSerializer(account, data=request.data, partial=True)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return Response(serializer.data)
+        
+
+        
+        serializer = FullUserProfileSerializer(account)
+        return Response(serializer.data)
+    
+    @action(detail=False, methods=['get'], url_path='all-accounts')
+    def all_accounts(self, request):
+        accounts = Account.objects.select_related('owner__user').exclude(owner__user=request.user)
+        
+        serializer = AccountReadSerializer(accounts, many=True)
+        return Response(serializer.data)
+
     @action(detail=False, methods=['post'], url_path='deposit')
     def deposit(self, request):
         idempotency_key = request.headers.get('idempotency_key')

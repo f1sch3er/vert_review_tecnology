@@ -64,38 +64,45 @@ class DepositTransactionSerializer(serializers.ModelSerializer):
 class TransactionsSerializer(serializers.ModelSerializer):
     id = serializers.UUIDField(read_only=True)
     
+    from_account = serializers.SlugRelatedField(
+        slug_field='account_number',
+        queryset=Account.objects.all(),
+        write_only=True
+    )
+    to_account = serializers.SlugRelatedField(
+        slug_field='account_number',
+        queryset=Account.objects.all(),
+        write_only=True
+    )
+
     from_account_number = serializers.CharField(source='from_account.account_number', read_only=True)
     to_account_number = serializers.CharField(source='to_account.account_number', read_only=True)
-
-    transfer_created = serializers.DateTimeField(read_only=True)
-    transfer_status = serializers.CharField(read_only=True)
 
     class Meta:
         model = Transaction
         fields = [
-            'id',
-            'from_account_number',
-            'to_account_number',
-            'amount',
-            'transfer_type',
-            'transfer_status',
-            'transfer_created',
+            'id', 'from_account', 'to_account', 
+            'from_account_number', 'to_account_number',
+            'amount', 'transfer_type', 'transfer_status', 'transfer_created',
         ]
 
-
     def validate(self, attrs):
-        from_account = attrs.get('from_account')
-        to_account = attrs.get('to_account')
+        from_acc = attrs.get('from_account')
+        to_acc = attrs.get('to_account')
         amount = attrs.get('amount')
 
-        if from_account == to_account:
-            raise serializers.ValidationError({'to_account': 'A conta de destino deve ser diferente da conta de origem.'})
-        
-        if amount and amount <= 0:
-            raise serializers.ValidationError({'amount': 'O valor da transferência deve ser maior que zero.'})
-        
-        return attrs
+        if from_acc == to_acc:
+            raise serializers.ValidationError("A conta de origem e destino não podem ser iguais.")
 
+        if amount <= 0:
+            raise serializers.ValidationError("O valor deve ser maior que zero.")
+
+        user = self.context['request'].user
+        if from_acc.owner.user != user:
+            raise serializers.ValidationError("Você só pode transferir de uma conta que lhe pertence.")
+
+        return attrs
+    
 class TransactionKafkaSerializer(serializers.ModelSerializer):
     transaction_id = serializers.CharField(source='id')
     from_account = serializers.CharField(source='from_account.account_number')

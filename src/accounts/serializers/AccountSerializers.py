@@ -65,6 +65,12 @@ class UserRegistrationResponseSerializer(serializers.ModelSerializer):
                 "href": "/api/token/",
                 "method": "POST",
                 "description": "Obter token JWT para acessar a conta"
+            },
+            "complete_profile": {
+                "rel": "complete_registration",
+                "href": "/api/clients/",
+                "method": "POST",
+                "description": "Enviar dados complementares para abertura de conta"
             }
         }
     
@@ -145,12 +151,16 @@ class ClientSummarySerializer(serializers.ModelSerializer):
         fields = ['id', 'full_name', 'email']
 
 class AccountReadSerializer(serializers.ModelSerializer):
-    owner_name = serializers.ReadOnlyField(source='owner.user.get_full_name')
+    owner_name = serializers.ReadOnlyField(source='owner.user.first_name')
 
     class Meta:
         model = Account
         fields = ['id', 'owner', 'owner_name', 'account_number', 'balance', 'blocked_balance', 'available_balance', 'created_at', 'updated_at'] 
 
+    def get_owner_name(self, obj):
+        full_name = obj.owner.user.get_full_name()
+        return full_name if full_name else obj.owner.user.username
+    
 class CreateAccountSerializer(serializers.ModelSerializer):
     user_id = serializers.IntegerField(required=False, write_only=True)
 
@@ -176,6 +186,50 @@ class CreateAccountSerializer(serializers.ModelSerializer):
 
         account = Account.objects.create(owner=client)
         return account
+
+class FullUserProfileSerializer(serializers.ModelSerializer):
+    first_name = serializers.CharField(source='owner.user.first_name')
+    last_name = serializers.CharField(source='owner.user.last_name')
+    email = serializers.EmailField(source='owner.user.email')
+    
+    phone = serializers.CharField(source='owner.phone_number')
+    document_type = serializers.CharField(source='owner.document_type')
+    document_number = serializers.CharField(source='owner.document_number')
+    birth_date = serializers.DateField(source='owner.birth_date')
+    
+    address = AddressSerializer(source='owner.address')
+
+    class Meta:
+        model = Account
+        fields = (
+            'first_name', 'last_name', 'email', 
+            'phone', 'document_type', 'document_number', 'birth_date',
+            'address'
+        )
+
+    
+    def update(self, instance, validated_data):
+        owner_data = validated_data.pop('owner', {})
+        user_data = owner_data.pop('user', {})
+        address_data = owner_data.pop('address', {})
+
+        user = instance.owner.user
+        for attr, value in user_data.items():
+            setattr(user, attr, value)
+        user.save()
+
+        address = instance.owner.address
+        if address:
+            for attr, value in address_data.items():
+                setattr(address, attr, value)
+            address.save()
+
+        owner = instance.owner
+        for attr, value in owner_data.items():
+            setattr(owner, attr, value)
+        owner.save()
+
+        return instance
 
 class AuthResponseSerializer(serializers.Serializer):
     access = serializers.CharField()
