@@ -1,10 +1,14 @@
-from django.shortcuts import render
-from accounts.models import Account
-from transactions.models import StatusTransfer, Transaction
-from transactions.serializers.transactions_serializer import TransactionKafkaSerializer, TransactionsSerializer
-from rest_framework import viewsets, permissions as permission, status
-from rest_framework.response import Response
 
+import logging
+
+from transactions.models import Transaction
+from transactions.serializers.transactions_serializer import RecentActivitySerializer, TransactionKafkaSerializer, TransactionsSerializer
+from rest_framework import generics, mixins, viewsets, permissions as permission, status
+from rest_framework.response import Response
+from django.db import transaction as db_transaction
+from rest_framework.permissions import IsAuthenticated
+from transactions.services.transaction_producer import TransactionProducer
+from django.db.models import Q
 
 class TransactionsView(viewsets.ModelViewSet):
     queryset = Transaction.objects.all()
@@ -12,7 +16,7 @@ class TransactionsView(viewsets.ModelViewSet):
     permission_classes = [permission.IsAuthenticated]
 
     def create(self, request, *args, **kwargs):
-        idempotency_key = request.headers.get('idempotency_key') # Headers costumam usar hífen
+        idempotency_key = request.headers.get('idempotency_key') 
 
         if not idempotency_key:
             return Response(
@@ -40,12 +44,31 @@ class TransactionsView(viewsets.ModelViewSet):
     def perform_create(self, serializer, idempotency_key):
         transaction_obj = serializer.save(idempotency_key=idempotency_key)
         
-        kafka_serializer = TransactionKafkaSerializer(transaction_obj)
-        payload = kafka_serializer.data
+        try:
+            kafka_serializer = TransactionKafkaSerializer(transaction_obj)
+            payload = kafka_serializer.data
+
+            TransactionProducer.send_transaction(payload)
+            
+            print(f"Payload enviado para a fila")
+            print(f"Tipo do payload: {type(payload)}")
+        except Exception as e:
+            logging.error(f"Erro ao serializar mensagem para Kafka: {e}")
+
         
-        print(f"Payload enviado para Kafka: {payload}")        
+class RecentActivityListAPIView(mixins.ListModelMixin, viewsets.GenericViewSet):
+    serializer_class = RecentActivitySerializer
+    permission_classes = [IsAuthenticated]
 
+    def get_queryset(self):
+        user = self.request.user
+        user_account = getattr(user, 'account', None)
+        print(f"DEBUG: Usuário {user} | Conta: {user_account}") 
 
         
+        if not user_account:
+            return Transaction.objects.none()
 
-
+        return Transaction.objects.filter(
+            Q(from_account=user_account) | Q(to_account=user_account)
+        ).order_by('-created_at')

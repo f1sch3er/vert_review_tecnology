@@ -38,7 +38,7 @@ class DepositTransactionSerializer(serializers.ModelSerializer):
             account.save()
 
             validated_data.pop('amount', None)
-            
+           
             tx = Transaction.objects.create(
                 to_account=account,
                 from_account=None,
@@ -102,10 +102,66 @@ class TransactionsSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Você só pode transferir de uma conta que lhe pertence.")
 
         return attrs
+
+class RecentActivitySerializer(serializers.ModelSerializer):
+    type_display = serializers.SerializerMethodField()
+    direction = serializers.SerializerMethodField()
+    date_formatted = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Transaction
+        fields = ['id', 'type_display', 'direction', 'amount', 'date_formatted', 'transfer_status']
+
+    def get_type_display(self, obj):
+        user = self.context['request'].user
+        user_account = getattr(user, 'account', None)
+        
+        if not user_account:
+            return "Conta não identificada"
+
+        if obj.transfer_type == 'DEPOSIT':
+            return "Depósito Recebido"
+        
+        if obj.from_account == user_account:
+            return "Transferência Enviada"
+        
+        return "Transferência Recebida"
+
+    def get_direction(self, obj):
+        user = self.context['request'].user
+        user_account = getattr(user, 'account', None)
+        
+        if not user_account:
+            return "OUT" 
+
+        if obj.to_account == user_account:
+            return "IN" 
+        return "OUT"    
+
+    def get_date_formatted(self, obj):
+        if obj.created_at:
+            return obj.created_at.strftime("%d/%m/%Y")
+        return ""
+        
+class DepositKafkaSerializer(serializers.ModelSerializer):
+    transaction_id = serializers.CharField(source='id')
+    from_account = serializers.SerializerMethodField()
+    to_account = serializers.CharField(source='to_account.account_number')
+    status = serializers.CharField(source='transfer_status')
+
+    class Meta:
+        model = Transaction
+        fields = [
+            'transaction_id', 'from_account', 'to_account', 
+            'amount', 'transfer_type', 'idempotency_key', 'status'
+        ]
+
+    def get_from_account(self, obj):
+        return None
     
 class TransactionKafkaSerializer(serializers.ModelSerializer):
     transaction_id = serializers.CharField(source='id')
-    from_account = serializers.CharField(source='from_account.account_number')
+    from_account = serializers.CharField(source='from_account.account_number', allow_null=True)
     to_account = serializers.CharField(source='to_account.account_number')
     status = serializers.CharField(source='transfer_status')
 

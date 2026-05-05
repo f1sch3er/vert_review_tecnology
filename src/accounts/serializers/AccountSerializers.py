@@ -187,6 +187,50 @@ class CreateAccountSerializer(serializers.ModelSerializer):
         account = Account.objects.create(owner=client)
         return account
 
+class UpsertUserProfileSerializer(serializers.Serializer):
+    first_name = serializers.CharField(required=False)
+    last_name = serializers.CharField(required=False)
+    email = serializers.EmailField(required=False)
+
+    phone_number = serializers.CharField(required=False)
+    document_type = serializers.CharField(required=False)
+    document_number = serializers.CharField(required=False)
+    birth_date = serializers.DateField(required=False)
+
+    address = serializers.DictField(required=False)
+
+    def update(self, instance, validated_data):
+        user = instance.owner.user
+        owner = instance.owner
+
+        # user
+        for field in ['first_name', 'last_name', 'email']:
+            if field in validated_data:
+                setattr(user, field, validated_data[field])
+        user.save()
+
+        # client (owner)
+        for field in ['phone_number', 'document_type', 'document_number', 'birth_date']:
+            if field in validated_data:
+                setattr(owner, field, validated_data[field])
+        owner.save()
+
+        # address
+        address_data = validated_data.get('address')
+        if address_data:
+            address = getattr(owner, 'address', None)
+
+            if address:
+                for attr, value in address_data.items():
+                    setattr(address, attr, value)
+                address.save()
+            else:
+                address = Address.objects.create(**address_data)
+                owner.address = address
+                owner.save()
+
+        return instance
+        
 class FullUserProfileSerializer(serializers.ModelSerializer):
     first_name = serializers.CharField(source='owner.user.first_name')
     last_name = serializers.CharField(source='owner.user.last_name')

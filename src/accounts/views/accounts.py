@@ -1,3 +1,5 @@
+import logging
+
 from django.contrib.auth import get_user_model
 from rest_framework import viewsets, mixins, status
 from rest_framework import permissions
@@ -11,13 +13,15 @@ from accounts.serializers.AccountSerializers import (
     AccountLoginSerializer,
     AccountReadSerializer,
     FullUserProfileSerializer,
+    UpsertUserProfileSerializer,
     UserRegistrationResponseSerializer, 
     CreateClientSerializer, 
     RegisterAccountSerializer,
     AuthResponseSerializer
 )
 from transactions.models import Transaction
-from transactions.serializers.transactions_serializer import DepositTransactionSerializer
+from transactions.serializers.transactions_serializer import DepositKafkaSerializer, DepositTransactionSerializer, TransactionKafkaSerializer
+from transactions.services.transaction_producer import TransactionProducer
 
 User = get_user_model()
 
@@ -45,7 +49,7 @@ class NewUserViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet):
             status=status.HTTP_201_CREATED
         )
 
-    @action(detail=False, methods=['get'], permission_classes=[AllowAny], url_path='check-email')
+    @action(detail=False, methods=['get'], permission_classes=[AllowAny], authentication_classes=[], url_path='check-email')
     def check_email_exists(self, request):
         email = request.query_params.get('email')
         exists = User.objects.filter(email=email).exists()
@@ -55,6 +59,7 @@ class NewUserViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet):
 
 class AuthViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet): 
     serializer_class = AccountLoginSerializer
+    authentication_classes = []
     permission_classes = [AllowAny]
 
     def create(self, request, *args, **kwargs):
@@ -115,8 +120,41 @@ class AccountMeViewSet(viewsets.ReadOnlyModelViewSet):
         
         serializer = AccountReadSerializer(account)
         return Response(serializer.data)
+        
+    @action(detail=False, methods=['post'], url_path='complete-profile')
+    def complete_profile(self, request):
+        data = request.data
+
+        client, created = Client.objects.get_or_create(
+            user=request.user,
+            defaults={
+                "birth_date": data.get("birth_date"),
+                "document_number": data.get("document_number"),
+                "document_type": data.get("document_type"),
+                "phone_number": data.get("phone_number"),
+            }
+        )
+
+        account = Account.objects.select_related(
+            'owner__user',
+            'owner__address'
+        ).filter(owner=client).first()
+
+        if not account:
+            account = Account.objects.create(owner=client)
+
+        serializer = UpsertUserProfileSerializer(
+            instance=account,
+            data=request.data,
+            partial=True
+        )
+
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
+        return Response(serializer.data, status=200)
     
-    @action(detail=False, methods=['get', 'patch'], url_path='profile')
+    @action(detail=False, methods=['get'], url_path='profile')
     def profile(self, request):
         account = Account.objects.select_related(
             'owner__user', 
@@ -125,14 +163,6 @@ class AccountMeViewSet(viewsets.ReadOnlyModelViewSet):
 
         if not account:
             return Response({"detail": "Perfil não encontrado."}, status=404)
-        
-        if request.method == 'PATCH':
-            serializer = FullUserProfileSerializer(account, data=request.data, partial=True)
-            serializer.is_valid(raise_exception=True)
-            serializer.save()
-            return Response(serializer.data)
-        
-
         
         serializer = FullUserProfileSerializer(account)
         return Response(serializer.data)
@@ -157,7 +187,7 @@ class AccountMeViewSet(viewsets.ReadOnlyModelViewSet):
         
         serializer = DepositTransactionSerializer(data=request.data, context={'account': account, 'idempotency_key': idempotency_key})
         serializer.is_valid(raise_exception=True)
-        serializer.save()
+        deposit = serializer.save()
 
         return Response(serializer.data, status=status.HTTP_201_CREATED)
                 

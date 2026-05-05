@@ -11,6 +11,19 @@ services:
     ports:
       - "5432:5432"
 
+  consumer:
+    build: .
+    container_name: vert_training_consumer
+    command: python manage.py run_consumer
+    restart: always  
+    depends_on:
+      - kafka
+      - db
+    env_file:
+      - .env
+    environment:
+      - PYTHONUNBUFFERED=1
+
   redis:
     image: redis:7-alpine
     container_name: vert_training_redis

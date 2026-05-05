@@ -31,47 +31,72 @@ class Command(BaseCommand):
         for message in consumer:
             try:
                 payload = message.value
-
                 self.process_transaction(payload)
-
                 consumer.commit()
-            except Transaction.DoesNotExist:
-                    logging.exception(e)
+            except Exception as e:  
+                logging.error(f"Erro ao processar mensagem: {e}")
                 
     
     def process_transaction(self, payload):
+        tx_type = str(payload.get('transfer_type')).upper()
+
+        if tx_type == 'DEPOSIT':
+            self._handle_deposit(payload)
+        else:
+            self._handle_transfer(payload)
+
+    def _handle_deposit(self, payload):
         transaction_id = payload.get('transaction_id')
-
-        if payload.get('status') == 'SETTLED':
-            logging.info(f"Transação já liquidada: {payload}")
-            return
-        
-        if payload.get('idempotency_key') is None:
-            raise Exception("Idempotency key is missing")
-
         with transaction.atomic():
-            transaction_selected = Transaction.objects.select_for_update().get(id=transaction_id)
+            tx = Transaction.objects.select_for_update().get(id=transaction_id)
             
-            account_related = Account.objects.select_for_update().get(account_number=transaction_selected.to_account.account_number)
+            dest_acc = tx.to_account
+            dest_acc.balance += tx.amount 
+            dest_acc.save()
 
-            if account_related is None:
-                raise Exception("Account not found")
+            tx.transfer_status = 'SETTLED'
+            tx.save()
 
-            if transaction_selected.idempotency_key != payload.get('idempotency_key'):
-                raise Exception("Idempotency mismatch")
-            
-            if account_related.status == 'FROZEN':
-                transaction_selected.status = 'REJECTED'
+    def _handle_transfer(self, payload):
+        transaction_id = payload.get('transaction_id')
+        payload_key = str(payload.get('idempotency_key')) 
 
-            if account_related.balance < transaction_selected.amount:
-                transaction_selected.status = 'REJECTED'
-                
+        try:
+            with transaction.atomic():
+                tx = Transaction.objects.select_for_update().get(id=transaction_id)
 
-            if account_related.status == 'ACTIVE':  
-                if transaction_selected.amount <= 1000:
-                    transaction_selected.status = 'SETTLED'
-                elif transaction_selected.amount > 1000:
-                    transaction_selected.status = 'REVIEW'
-                    
-                logging.info(f"Transação processada: {payload}")
-                transaction_selected.save()
+                if tx.transfer_status in ['SETTLED', 'REJECTED']:
+                    logging.info(f"Transação {transaction_id} já finalizada anteriormente.")
+                    return
+
+                if str(tx.idempotency_key) != payload_key:
+                    logging.error(f"Divergência de Idempotência: Banco({tx.idempotency_key}) vs Payload({payload_key})")
+                    raise Exception("Idempotency mismatch")
+
+                source_acc = tx.from_account
+                dest_acc = tx.to_account
+
+                if source_acc.balance < tx.amount:
+                    tx.transfer_status = 'REJECTED'
+                    logging.warning(f"Saldo insuficiente na conta {source_acc.id}")
+                else:
+                    if tx.amount <= 1000:
+                        tx.transfer_status = 'SETTLED'
+                        
+                        source_acc.balance -= tx.amount
+                        dest_acc.balance += tx.amount
+                        
+                        source_acc.save()
+                        dest_acc.save()
+                        logging.info(f"Saldos atualizados: Origem({source_acc.balance}), Destino({dest_acc.balance})")
+                    else:
+                        tx.transfer_status = 'REVIEW'
+
+                tx.save()
+                logging.info(f"Transação {transaction_id} processada. Novo status: {tx.transfer_status}")
+
+        except Transaction.DoesNotExist:
+            logging.error(f"Transação {transaction_id} não encontrada no banco de dados.")
+        except Exception as e:
+            logging.error(f"Erro crítico no processamento: {e}")
+            raise e

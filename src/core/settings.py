@@ -19,6 +19,8 @@ from corsheaders.defaults import default_headers
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+KAFKA_BOOTSTRAP_SERVERS = os.getenv("KAFKA_BROKERS", "kafka:19092").split(",")
+
 # Load environment variables from .env file
 env = environ.Env(
     DEBUG=(bool, False)
@@ -60,6 +62,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'corsheaders',
     'drf_spectacular',
+    'consumer',
 
     #apps
     'accounts',
@@ -183,6 +186,7 @@ SIMPLE_JWT = {
 
 STATIC_URL = 'static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+
 
 # settings.py
 AUTH_USER_MODEL = 'accounts.User'
