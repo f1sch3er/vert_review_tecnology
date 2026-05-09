@@ -154,7 +154,7 @@ class AccountMeViewSet(viewsets.ReadOnlyModelViewSet):
 
         return Response(serializer.data, status=200)
     
-    @action(detail=False, methods=['get'], url_path='profile')
+    @action(detail=False, methods=['get', 'patch'], url_path='profile')
     def profile(self, request):
         account = Account.objects.select_related(
             'owner__user', 
@@ -163,6 +163,16 @@ class AccountMeViewSet(viewsets.ReadOnlyModelViewSet):
 
         if not account:
             return Response({"detail": "Perfil não encontrado."}, status=404)
+        
+        if request.method == 'PATCH':
+            serializer = FullUserProfileSerializer(
+                instance=account,
+                data=request.data,
+                partial=True
+            )
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return Response(serializer.data)
         
         serializer = FullUserProfileSerializer(account)
         return Response(serializer.data)

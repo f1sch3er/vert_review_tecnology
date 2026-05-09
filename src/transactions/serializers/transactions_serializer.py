@@ -103,6 +103,69 @@ class TransactionsSerializer(serializers.ModelSerializer):
 
         return attrs
 
+
+class TransactionDetailSerializer(serializers.ModelSerializer):
+    from_account_number = serializers.ReadOnlyField(source='from_account.account_number')
+    from_account_name = serializers.ReadOnlyField(source='from_account.owner.user.get_full_name')
+    from_account_email = serializers.ReadOnlyField(source='from_account.owner.user.email')
+    
+    to_account_number = serializers.ReadOnlyField(source='to_account.account_number')
+    to_account_name = serializers.ReadOnlyField(source='to_account.owner.user.get_full_name')
+    to_account_email = serializers.ReadOnlyField(source='to_account.owner.user.email')
+    
+    type_display = serializers.CharField(source='get_transfer_type_display', read_only=True)
+    status_display = serializers.CharField(source='get_transfer_status_display', read_only=True)
+    date_formatted = serializers.DateTimeField(source='transfer_created', format="%d/%m/%Y %H:%M:%S")
+    
+    direction = serializers.SerializerMethodField()
+    relevant_balance_after = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Transaction
+        fields = [
+            'id', 
+            'amount', 
+            'direction', 
+            'type_display', 
+            'status_display',
+            'external_code',
+            'idempotency_key',
+            'date_formatted',
+            'transfer_created',
+            'transfer_updated',
+            
+            'from_account_name', 
+            'from_account_number',
+            'from_account_email',
+            
+            'to_account_name', 
+            'to_account_number',
+            'to_account_email',
+            
+            'relevant_balance_after', 
+            'from_account_balance_after',
+            'to_account_balance_after',
+        ]
+
+    def get_direction(self, obj):
+        user = self.context['request'].user
+        if obj.from_account and obj.from_account.owner.user == user:
+            return 'OUT'
+        return 'IN'
+
+    def get_relevant_balance_after(self, obj):
+        """
+        Retorna o saldo que faz sentido para o usuário logado visualizar.
+        Se ele enviou, mostra o from_account_balance_after.
+        Se ele recebeu, mostra o to_account_balance_after.
+        """
+        user = self.context['request'].user
+        if obj.from_account and obj.from_account.owner.user == user:
+            return obj.from_account_balance_after
+        if obj.to_account and obj.to_account.owner.user == user:
+            return obj.to_account_balance_after
+        return None
+    
 class RecentActivitySerializer(serializers.ModelSerializer):
     type_display = serializers.SerializerMethodField()
     direction = serializers.SerializerMethodField()
@@ -113,11 +176,7 @@ class RecentActivitySerializer(serializers.ModelSerializer):
         fields = ['id', 'type_display', 'direction', 'amount', 'date_formatted', 'transfer_status']
 
     def get_type_display(self, obj):
-        user = self.context['request'].user
-        user_account = getattr(user, 'account', None)
-        
-        if not user_account:
-            return "Conta não identificada"
+        user_account = self.context.get('user_account')
 
         if obj.transfer_type == 'DEPOSIT':
             return "Depósito Recebido"
@@ -139,8 +198,8 @@ class RecentActivitySerializer(serializers.ModelSerializer):
         return "OUT"    
 
     def get_date_formatted(self, obj):
-        if obj.created_at:
-            return obj.created_at.strftime("%d/%m/%Y")
+        if obj.transfer_created:
+            return obj.transfer_created.strftime("%d/%m/%Y")
         return ""
         
 class DepositKafkaSerializer(serializers.ModelSerializer):

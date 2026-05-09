@@ -1,8 +1,10 @@
 
 import logging
 
+from accounts.models import Account
+from core.utils import PaginationClass
 from transactions.models import Transaction
-from transactions.serializers.transactions_serializer import RecentActivitySerializer, TransactionKafkaSerializer, TransactionsSerializer
+from transactions.serializers.transactions_serializer import RecentActivitySerializer, TransactionDetailSerializer, TransactionKafkaSerializer, TransactionsSerializer
 from rest_framework import generics, mixins, viewsets, permissions as permission, status
 from rest_framework.response import Response
 from django.db import transaction as db_transaction
@@ -42,6 +44,13 @@ class TransactionsView(viewsets.ModelViewSet):
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     def perform_create(self, serializer, idempotency_key):
+        from_account = serializer.validated_data.get("from_account")
+        amount = serializer.validated_data.get("amount")
+
+        if from_account and amount:
+            if from_account.balance < amount:
+                raise Exception("Saldo insuficiente")
+            
         transaction_obj = serializer.save(idempotency_key=idempotency_key)
         
         try:
@@ -56,19 +65,25 @@ class TransactionsView(viewsets.ModelViewSet):
             logging.error(f"Erro ao serializar mensagem para Kafka: {e}")
 
         
-class RecentActivityListAPIView(mixins.ListModelMixin, viewsets.GenericViewSet):
-    serializer_class = RecentActivitySerializer
+class RecentActivityViewSet(mixins.ListModelMixin, 
+                            mixins.RetrieveModelMixin, 
+                            viewsets.GenericViewSet):
+    
     permission_classes = [IsAuthenticated]
+    lookup_field = 'id'
+    pagination_class = PaginationClass
 
     def get_queryset(self):
         user = self.request.user
-        user_account = getattr(user, 'account', None)
-        print(f"DEBUG: Usuário {user} | Conta: {user_account}") 
-
-        
-        if not user_account:
-            return Transaction.objects.none()
-
         return Transaction.objects.filter(
-            Q(from_account=user_account) | Q(to_account=user_account)
-        ).order_by('-created_at')
+            Q(from_account__owner__user=user) |
+            Q(to_account__owner__user=user)
+        ).select_related(
+            'from_account__owner__user',
+            'to_account__owner__user'
+        ).order_by('-transfer_created').distinct()
+
+    def get_serializer_class(self):
+        if self.action == 'retrieve':
+            return TransactionDetailSerializer
+        return RecentActivitySerializer
