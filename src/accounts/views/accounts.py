@@ -29,6 +29,7 @@ class NewUserViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet):
     queryset = User.objects.all()
     serializer_class = RegisterAccountSerializer
     permission_classes = [AllowAny]
+    authentication_classes = []
 
     def create(self, request, *args, **kwargs):
 
@@ -49,7 +50,24 @@ class NewUserViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet):
             status=status.HTTP_201_CREATED
         )
 
-    @action(detail=False, methods=['get'], permission_classes=[AllowAny], authentication_classes=[], url_path='check-email')
+    @action(detail=False, methods=['get'], url_path='has-profile')
+    def user_has_profile(self, request):
+        email = request.query_params.get('email')
+        if not email:
+            return Response({'error': 'E-mail é obrigatório'}, status=status.HTTP_400_BAD_REQUEST)
+
+        user = User.objects.filter(email=email).first()
+        if not user:
+            return Response({'error': 'Usuário não encontrado'}, status=status.HTTP_404_NOT_FOUND)
+
+        has_profile = hasattr(user, 'client_profile')
+
+        return Response({
+            'has_profile': has_profile,
+            'message': 'Perfil verificado com sucesso'
+        }, status=status.HTTP_200_OK)
+
+    @action(detail=False, methods=['get'], url_path='check-email')
     def check_email_exists(self, request):
         email = request.query_params.get('email')
         exists = User.objects.filter(email=email).exists()
